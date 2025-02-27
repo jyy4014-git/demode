@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:demode/backend/services/auth_service.dart';
 import 'package:demode/frontend/widgets/social_login_button.dart';
 import 'package:demode/frontend/screens/instagram_screen.dart';
-import 'package:demode/frontend/screens/signup_screen.dart';
+import 'package:demode/utils/logger.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,13 +15,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
   bool _isLoading = false;
+  bool _isRegistering = false;
   final _authService = AuthService();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -64,6 +67,46 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<void> _handleRegister() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final success = await _authService.register(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _nameController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        _showSuccess('회원가입이 완료되었습니다');
+        setState(() => _isRegistering = false);
+      } else {
+        _showError('회원가입에 실패했습니다');
+      }
+    } catch (e) {
+      AppLogger.error('Register error', e);
+      if (!mounted) return;
+      _showError('회원가입 중 오류가 발생했습니다');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -113,41 +156,31 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 20),
+                if (_isRegistering)
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: '이름',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '이름을 입력하세요';
+                      }
+                      return null;
+                    },
+                  ),
                 const SizedBox(height: 30),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _handleLogin,
+                  onPressed: _isLoading ? null : (_isRegistering ? _handleRegister : _handleLogin),
                   child: _isLoading
                       ? const CircularProgressIndicator()
-                      : const Text('로그인'),
+                      : Text(_isRegistering ? '회원가입' : '로그인'),
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  '또는',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 20),
-                SocialLoginButton(
-                  text: '네이버로 시작하기',
-                  backgroundColor: const Color(0xFF03C75A),
-                  onPressed: () => _handleSocialLogin('naver'),
-                  icon: 'assets/icons/naver_icon.png',
-                ),
-                const SizedBox(height: 10),
-                SocialLoginButton(
-                  text: '카카오로 시작하기',
-                  backgroundColor: const Color(0xFFFEE500),
-                  textColor: Colors.black87,
-                  onPressed: () => _handleSocialLogin('kakao'),
-                  icon: 'assets/icons/kakao_icon.png',
-                ),
-                const SizedBox(height: 10),
-                SocialLoginButton(
-                  text: 'Google로 시작하기',
-                  backgroundColor: Colors.white,
-                  textColor: Colors.black87,
-                  onPressed: () => _handleSocialLogin('google'),
-                  icon: 'assets/icons/google_icon.png',
+                TextButton(
+                  onPressed: () => setState(() => _isRegistering = !_isRegistering),
+                  child: Text(_isRegistering ? '로그인하기' : '회원가입하기'),
                 ),
               ],
             ),

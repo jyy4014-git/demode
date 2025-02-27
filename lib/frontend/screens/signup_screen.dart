@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:demode/frontend/services/social_auth_service.dart';
 import 'package:demode/frontend/widgets/social_login_button.dart';
 import 'package:demode/frontend/screens/instagram_screen.dart';
 
-class SignupScreen extends StatelessWidget {
+class SignupScreen extends StatefulWidget {
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
   final SocialAuthService _socialAuthService = SocialAuthService();
 
-  SignupScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -64,18 +67,25 @@ class SignupScreen extends StatelessWidget {
   Future<void> _handleSocialLogin(BuildContext context, String provider) async {
     try {
       final user = await _socialAuthService.signIn(provider);
+      
+      if (!mounted) return;  // State의 mounted 체크
+
       if (user != null) {
-        Navigator.of(context).pushAndRemoveUntil(
+        if (!mounted) return;  // 추가 mounted 체크
+        
+        await Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => InstagramScreen(),
-            settings: RouteSettings(name: '/home'),
+            settings: const RouteSettings(name: '/home'),
           ),
           (route) => false,
         );
       }
     } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('로그인 중 오류가 발생했습니다.'),
           backgroundColor: Colors.red,
         ),

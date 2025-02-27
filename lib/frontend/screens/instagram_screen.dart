@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:demode/backend/database_helper.dart';
-import 'package:demode/backend/post.dart';
-import 'package:demode/frontend/widgets/header.dart';
 import 'package:demode/backend/services/auth_service.dart';
+import 'package:demode/backend/models/post.dart';
+import 'package:demode/frontend/widgets/header.dart';
+import 'package:demode/frontend/widgets/post_widget.dart';
+import 'package:demode/backend/repositories/database_helper.dart';
+import 'package:demode/utils/logger.dart';
 
 // 인스타그램 화면 클래스
 class InstagramScreen extends StatefulWidget {
@@ -17,6 +19,7 @@ class InstagramScreen extends StatefulWidget {
 class _InstagramScreenState extends State<InstagramScreen> {
   List<Post> _posts = [];
   final _authService = AuthService();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   @override
   void initState() {
@@ -26,11 +29,15 @@ class _InstagramScreenState extends State<InstagramScreen> {
   }
 
   Future<void> _loadPosts() async {
-    final dbHelper = DatabaseHelper();
-    final posts = await dbHelper.getPosts();
-    setState(() {
-      _posts = posts.map((post) => Post.fromMap(post)).toList();
-    });
+    try {
+      final posts = await _dbHelper.getPosts();
+      if (!mounted) return;
+      setState(() {
+        _posts = posts.map((post) => Post.fromMap(post)).toList();
+      });
+    } catch (e) {
+      AppLogger.error('Load posts error', e);
+    }
   }
 
   Future<void> _updateSession() async {

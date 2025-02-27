@@ -6,6 +6,8 @@ import 'package:demode/frontend/widgets/file_picker_button.dart';
 import 'package:demode/frontend/widgets/error_dialog.dart';
 import 'package:demode/backend/post.dart';
 import 'package:demode/frontend/widgets/header.dart';
+import 'package:demode/backend/repositories/database_helper.dart';
+import 'package:demode/utils/logger.dart';
 
 // 판매 아이템 화면 클래스
 class SellItemScreen extends StatelessWidget {
@@ -39,6 +41,8 @@ class _SellItemFormState extends State<SellItemForm> {
   List<PlatformFile> _files = [];
   String? _selectedCategory;
   final List<String> _categories = ['전자제품', '책', '의류', '가정용품', '장난감'];
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+  bool _isLoading = false;
 
   // 파일 선택 함수
   Future<void> _pickFiles() async {
@@ -79,6 +83,44 @@ class _SellItemFormState extends State<SellItemForm> {
     } catch (e) {
       ErrorDialog.show(context, '이미지를 선택하는 중 오류가 발생했습니다.');
     }
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final post = {
+        'title': _titleController.text,
+        'price': _priceController.text,
+        'description': _descriptionController.text,
+        'imageUrl': _files.isNotEmpty ? _files.first.path! : '',
+        'category': _selectedCategory ?? '기타',
+      };
+
+      final id = await _dbHelper.insertPost(post);
+      
+      if (!mounted) return;
+      
+      if (id > 0) {
+        Navigator.of(context).pop(true); // 성공 시 true 반환
+      } else {
+        _showError('게시물 등록에 실패했습니다');
+      }
+    } catch (e) {
+      AppLogger.error('Submit form error', e);
+      if (!mounted) return;
+      _showError('오류가 발생했습니다');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ErrorDialog.show(context, message);
   }
 
   @override
@@ -189,24 +231,8 @@ class _SellItemFormState extends State<SellItemForm> {
           SizedBox(height: 20),
           // 등록 버튼
           ElevatedButton(
-            onPressed: () {
-              try {
-                if (_formKey.currentState!.validate()) {
-                  // 판매 글 작성 로직 추가
-                  final newPost = Post(
-                    imageUrl: _files.isNotEmpty ? _files.first.path! : '',
-                    title: _titleController.text,
-                    price: _priceController.text,
-                  );
-                  Navigator.pop(context, newPost);
-                } else {
-                  ErrorDialog.show(context, '모든 필드를 올바르게 입력하세요.');
-                }
-              } catch (e) {
-                ErrorDialog.show(context, '등록하는 중 오류가 발생했습니다.');
-              }
-            },
-            child: Text('등록'),
+            onPressed: _isLoading ? null : _submitForm,
+            child: _isLoading ? CircularProgressIndicator() : Text('등록'),
           ),
         ],
       ),
